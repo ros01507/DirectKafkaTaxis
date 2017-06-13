@@ -4,6 +4,7 @@
     <output url="file://$MODULE_DIR$/target/classes" />
     <output-test url="file://$MODULE_DIR$/target/test-classes" />
     <content url="file://$MODULE_DIR$">
+      <sourceFolder url="file://$MODULE_DIR$/src/main/scala" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />
@@ -215,6 +216,6 @@
     <orderEntry type="library" name="Maven: org.apache.parquet:parquet-format:2.3.0-incubating" level="project" />
     <orderEntry type="library" name="Maven: org.apache.parquet:parquet-jackson:1.7.0" level="project" />
     <orderEntry type="library" name="Maven: org.apache.spark:spark-streaming-kafka-0-8_2.11:2.1.1" level="project" />
-    <orderEntry type="library" name="scala-sdk-2.12.2" level="application" />
+    <orderEntry type="library" name="scala-sdk-2.11" level="application" />
   </component>
 </module>
