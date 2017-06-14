@@ -1,10 +1,8 @@
 
 import kafka.serializer.StringDecoder
-
+import org.apache.spark.SparkConf
 import org.apache.spark.streaming._
 import org.apache.spark.streaming.kafka._
-import org.apache.spark.SparkConf
-
 /**
   * Consumes messages from one or more topics in Kafka and does wordcount.
   * Usage: DirectKafkaWordCount <brokers> <topics>
@@ -32,12 +30,15 @@ object DirectKafkaTaxisNY {
     val Array(brokers, topics) = args
 
     // Create context with 2 second batch interval
-    val sparkConf = new SparkConf().setAppName("DirectKafkaTaxisNY").setMaster("local[*]")
+    val sparkConf = new SparkConf().setAppName("DirectKafkaTaxisNY").setMaster("local[2]")
     val ssc = new StreamingContext(sparkConf, Seconds(2))
 
     // Create direct kafka stream with brokers and topics
     val topicsSet = topics.split(",").toSet
-    val kafkaParams = Map[String, String]("bootstrap.servers" -> brokers)
+    val kafkaParams = Map[String, String](
+      "metadata.broker.list" -> brokers,
+      "group-id" -> "test-consumer-group")
+
     val messages = KafkaUtils.createDirectStream[String, String, StringDecoder, StringDecoder](
       ssc, kafkaParams, topicsSet)
 
