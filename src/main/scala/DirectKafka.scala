@@ -1,43 +1,61 @@
-import kafka.serializer.StringDecoder
-import org.apache.spark.SparkConf
-import org.apache.spark.streaming.kafka.KafkaUtils
-import org.apache.spark.streaming.{Seconds, StreamingContext}
+import org.apache.kafka.common.serialization.StringDeserializer
+import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.{SQLContext, SaveMode}
+import org.apache.spark.streaming.kafka010.ConsumerStrategies.Subscribe
+import org.apache.spark.streaming.kafka010.LocationStrategies.PreferConsistent
+import org.apache.spark.streaming.kafka010._
+import org.apache.spark.streaming.{Seconds, StreamingContext, Time}
+import org.apache.spark.{SparkConf, SparkContext}
 
-object DirectKafkaTaxisNY {
+object DirectKafka {
   def main(args: Array[String]) {
-    if (args.length < 2) {
-      System.err.println(s"""
-                            |Usage: DirectKafkaTaxisNY <brokers> <topics>
-                            |  <brokers> is a list of one or more Kafka brokers
-                            |  <topics> is a list of one or more kafka topics to consume from
-                            |
-        """.stripMargin)
-      System.exit(1)
-    }
-
-  //  StreamingExamples.setStreamingLogLevels()
-
-    val Array(brokers, topics) = args
+    val kafkaParams = Map[String, Object](
+      "bootstrap.servers" -> "localhost:9092",
+      "key.deserializer" -> classOf[StringDeserializer],
+      "value.deserializer" -> classOf[StringDeserializer],
+      "group.id" -> "test-group-id",
+      "auto.offset.reset" -> "latest",
+      "enable.auto.commit" -> (false: java.lang.Boolean)
+    )
 
     // Create context with 2 second batch interval
-    val sparkConf = new SparkConf().setAppName("DirectKafkaTaxisNY")
+    val sparkConf = new SparkConf().setAppName("DirectKafka").setMaster("local[*]")
     val ssc = new StreamingContext(sparkConf, Seconds(2))
 
-    // Create direct kafka stream with brokers and topics
-    val topicsSet = topics.split(",").toSet
-    val kafkaParams = Map[String, String]("metadata.broker.list" -> brokers)
-    val messages = KafkaUtils.createDirectStream[String, String, StringDecoder, StringDecoder](
-      ssc, kafkaParams, topicsSet)
+    val topics = Array("amarillo", "yellow")b
+    val stream = KafkaUtils.createDirectStream[String, String](
+      ssc,
+      PreferConsistent,
+      Subscribe[String, String](topics, kafkaParams)
+    )
+    val lines = stream.map(record => (record.key, record.value))
+    val words = lines.flatMap(_._2.split(","))
 
-    // Get the lines, split them into words, count the words and print
-    val lines = messages.map(_._2)
-    val words = lines.flatMap(_.split(" "))
-  //  val wordCounts = words.map(x => (x, 1L)).reduceByKey(_ + _)
-    words.print()
+    words.count().print()
 
-    // Start the computation
-    ssc.start()
-    ssc.awaitTermination()
+    // Convert RDDs of the words DStream to DataFrame and run SQL query
+    words.foreachRDD((rdd: RDD[String], time: Time) => {
+
+      val sqlContext = SQLContextSingleton.getInstance(rdd.sparkContext)
+      import sqlContext.implicits._
+      val wordsDataFrame = rdd.map(w => Record(w)).toDF()
+      wordsDataFrame.write.mode(SaveMode.Append).parquet("/tmp/parquet");
+    })
+
   }
+
+  case class Record(word: String)
+
+  object SQLContextSingleton {
+    @transient private var instance: SQLContext = _
+
+    def getInstance(sparkContext: SparkContext): SQLContext = {
+      if (instance == null) {
+        instance = new SQLContext(sparkContext)
+      }
+      instance
+    }
+  }
+
 }
-// scalastyle:on println
+
