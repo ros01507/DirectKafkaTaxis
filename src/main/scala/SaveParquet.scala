@@ -1,7 +1,7 @@
+import com.datastax.spark.connector.cql.CassandraConnector
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.SparkConf
-import org.apache.spark.sql.SaveMode
 import org.apache.spark.streaming.kafka010.ConsumerStrategies.Subscribe
 import org.apache.spark.streaming.kafka010.LocationStrategies.PreferConsistent
 import org.apache.spark.streaming.kafka010._
@@ -24,8 +24,6 @@ object SaveParquet {
     )
 
     val kafkaBrokers = "localhost:9092"
-    // Create context with 2 second batch interval
-
     val sparkConf = new SparkConf().setAppName("SaveParquet").setMaster("local[2]")
     val ssc = new StreamingContext(sparkConf, Seconds(5))
     val topics = "yellow"
@@ -35,52 +33,88 @@ object SaveParquet {
       PreferConsistent,
       Subscribe[String, String](topicsSet, kafkaParams)
     )
+
     val words = stream.map(record => (record.key, record.value)).flatMap(x => x._2.split("\n"))
 
     // Convert RDDs of the words DStream to DataFrame and run SQL query
     words.foreachRDD { rdd =>
 
-        val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf)
-        import spark.implicits._
+      val spark = SparkSessionSingleton.getInstance(rdd.sparkContext.getConf)
+      val connector = CassandraConnector.apply(spark.sparkContext.getConf)
 
+      connector.withSessionDo { session =>
+        Statements.createKeySpaceAndTable(session, true)
+      }
+
+      def processRow(value: Record) = {
+        connector.withSessionDo { session =>
+          session.execute(Statements.cql(value.VendorID, value.tpep_pickup_datetime, value.tpep_dropoff_datetime,
+            value.passenger_count, value.trip_distance, value.ratecodeid, value.store_and_fwd_flag, value.pulocationid,
+            value.dolocationid, value.payment_type, value.fare_amount, value.extra, value.mta_tax, value.tip_amount,
+            value.tolls_amount, value.improvement_surcharge, value.total_amount))
+        }
+      }
+
+      import org.apache.spark.sql.ForeachWriter
+      val writer = new ForeachWriter[Record] {
+        override def open(partitionId: Long, version: Long) = true
+        override def process(value: Record) = {
+          processRow(value)
+        }
+        override def close(errorOrNull: Throwable) = {}
+      }
+      import spark.implicits._
       val words = rdd.map(_.split(","))
 
-      val df = words.map{case Array(s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13, s14, s15, s16) =>
-        Record(s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13, s14, s15, s16)}
+      val df = words.map { case Array(s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13, s14, s15, s16) =>
+        Record(s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13, s14, s15, s16)
+      }.toDF()
 
-      println(s"$df")
+   /*   df.createOrReplaceTempView("temp")
+      val query = spark.sql("select count(*) from temp")
+      query.show() */
 
-      val wordDF = words.map{case Array(s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13, s14, s15, s16) =>
-          Record(s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13, s14, s15, s16)}.toDF()
-        // wordDF.printSchema()
-        wordDF.write.mode(SaveMode.Append).parquet("/tmp/parquet");
+     // df.printSchema()
+     // df.write.mode(SaveMode.Append).parquet("hdfs://localhost:9000/user/Taxis/yellow/");
+      df.writeStream.queryName("SaveToCassandra").outputMode("append")
+      val ds = df.select($"vendorid", $"tpep_pickup_datetime", $"tpep_dropoff_datetime",
+        $"passenger_count", $"trip_distance", $"ratecodeid", $"store_and_fwd_flag",
+        $"pulocationID", $"doLocationID", $"payment_type", $"fare_amount", $"extra",
+        $"mta_tax", $"tip_amount", $"tolls_amount", $"improvement_surcharge", $"total_amount").as[Record]
 
-      }
+      // This Foreach sink writer writes the output to cassandra.
+
+      /* val query = ds.writeStream.queryName("SaveToCassandra").outputMode("append").foreach(writer).start()
+       query.awaitTermination() */
+
+
+
+       }
+
     ssc.start()
     ssc.awaitTermination()
 
   }
 
+
+  case class Record(VendorID: String,
+                    tpep_pickup_datetime: String,
+                    tpep_dropoff_datetime: String,
+                    passenger_count: String,
+                    trip_distance: String,
+                    ratecodeid: String,
+                    store_and_fwd_flag: String,
+                    pulocationid: String,
+                    dolocationid: String,
+                    payment_type: String,
+                    fare_amount: String,
+                    extra: String,
+                    mta_tax: String,
+                    tip_amount: String,
+                    tolls_amount: String,
+                    improvement_surcharge: String,
+                    total_amount: String)
+
 }
 
-/** Case class for converting RDD to DataFrame */
-case class Record(VendorID: String,
-                  tpep_pickup_datetime: String,
-                  tpep_dropoff_datetime: String,
-                  passenger_count: String,
-                  trip_distance: String,
-                  RatecodeID: String,
-                  store_and_fwd_flag: String,
-                  PULocationID: String,
-                  DOLocationID: String,
-                  payment_type: String,
-                  fare_amount: String,
-                  extra: String,
-                  mta_tax: String,
-                  tip_amount: String,
-                  tolls_amount: String,
-                  improvement_surcharge: String,
-                  total_amount: String)
 
-
-/** Lazily instantiated singleton instance of SparkSession */

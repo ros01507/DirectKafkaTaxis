@@ -1,7 +1,7 @@
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
-import org.apache.spark.sql.{Row, SaveMode, SparkSession}
+import org.apache.spark.sql.{Row, SaveMode}
 import org.apache.spark.streaming.kafka010.ConsumerStrategies.Subscribe
 import org.apache.spark.streaming.kafka010.LocationStrategies.PreferConsistent
 import org.apache.spark.streaming.kafka010._
@@ -71,17 +71,3 @@ object SchemaParquetFile {
 
 }
 
-object SparkSessionSingleton {
-
-  @transient private var instance: SparkSession = _
-
-  def getInstance(sparkConf: SparkConf): SparkSession = {
-    if (instance == null) {
-      instance = SparkSession
-        .builder
-        .config(sparkConf)
-        .getOrCreate()
-    }
-    instance
-  }
-}

@@ -27,8 +27,8 @@ object Direct010 {
   // Create context with 2 second batch interval
 
   val sparkConf = new SparkConf().setAppName("Direct010").setMaster("local[2]")
-  val ssc = new StreamingContext(sparkConf, Seconds(5))
-  val topics = "prueba"
+  val ssc = new StreamingContext(sparkConf, Seconds(2))
+  val topics = "yellow"
   val topicsSet = topics.split(",").toSet
   val stream = KafkaUtils.createDirectStream[String, String](
     ssc,
