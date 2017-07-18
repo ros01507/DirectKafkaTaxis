@@ -65,8 +65,8 @@ object SaveHdfsCassandra {
           s14.toDouble, s15.toDouble, s16.toDouble)
       }.toDF()
 
-      val reg = df.count()
-      println(reg)
+     // val reg = df.count()
+     // println(reg)
 
       if (reg != Empty) {
 
