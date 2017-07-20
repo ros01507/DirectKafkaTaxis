@@ -68,19 +68,19 @@ object SaveHdfsCassandra {
       val reg = df.count()
       println(reg)
 
-      if (reg != Empty) {
+      if (reg != 0) {
 
         // Persistimos en hdfs
         df.write.mode(SaveMode.Append).parquet("hdfs://localhost:9000/user/Taxis/yellow/");
 
-        // Escritura en tabla yellow_tripdata con todos los datos
+        /* Escritura en tabla yellow_tripdata con todos los datos
         df.write.format("org.apache.spark.sql.cassandra")
           .mode(SaveMode.Append)
           .options(Map("keyspace" -> "taxisny", "table" -> "yellow_tripdata"))
           .save()
         val count_yellow_tripdata = df.count()
         println(s"Succesfully saved $count_yellow_tripdata")
-        df.show()
+        df.show()*/
 
         // Agregacion cubo 1: Media total_amount y sum payment type por pickup datetime y passenger count
         val cubo_query1 = df.groupBy("tpep_pickup_datetime", "payment_type", "ratecodeid")
