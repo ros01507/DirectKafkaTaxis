@@ -1,8 +1,9 @@
-Desarrollo para la recepción de datos de la web de Taxis de Nueva York a través de Spark Streaming,
-desarrollo para la persistencia de esos datos "en bruto" en HDFS, desarrollo para la generación de
-cubos OLAP.
+Desarrollo Spark Streaming con Apache Kafka
 
-La aplicación lee datos de topic de Kafka y a través de contexto spark-streaming persiste datos en bruto en HDFS, y por otro lado en
-la misma ventana genera agreagaciones que persiste en cassandra.
+. Lectura datos csv de topic de Kafka DirectStream a través de contexto spark-streaming.
+. Desarrollo para persistencia de datos "en bruto" en HDFS.
+. Desarrollo para la generación de cubos OLAP, y pesistencia en Cassandra.
 
-Clase principal SaveHdfsCassandralase ,SparkSessionSingleton, y Statements.
+Clases: SaveHdfsCassandra ,SparkSessionSingleton, y Statements.
+
+
